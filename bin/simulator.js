@@ -9,12 +9,12 @@ const { Server } = require('../')
 const argv = minimist(process.argv.slice(2), {
   '--': true
 })
-const version = `hyperspace/${require('../package.json').version} ${process.platform}-${process.arch} node-${process.version}`
-const help = `Hypercore, batteries included.
+const version = `bitspace/${require('../package.json').version} ${process.platform}-${process.arch} node-${process.version}`
+const help = `Unichains, batteries included.
 ${version}
 
-Usage: hyperspace-simulator <script.js> -- [script-args]
-  Run the test script using an live, in-memory Hyperspace instance.
+Usage: bitspace-simulator <script.js> -- [script-args]
+  Run the test script using an live, in-memory Bitspace instance.
 `
 
 if (argv.help) {
@@ -26,8 +26,8 @@ main().catch(onerror)
 async function main () {
   if (!argv._.length) return console.error(help)
   const scriptPath = p.resolve(argv._[0].toString())
-  const simulatorId = `hyperspace-simulator-${process.pid}`
-  process.env.HYPERSPACE_SOCKET = simulatorId
+  const simulatorId = `bitspace-simulator-${process.pid}`
+  process.env.BITSPACE_SOCKET = simulatorId
 
   const server = new Server({
     host: simulatorId,

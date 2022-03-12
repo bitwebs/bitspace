@@ -1,20 +1,20 @@
 const test = require('tape')
-const hypertrie = require('hypertrie')
-const hyperdrive = require('hyperdrive')
+const bittrie = require('@web4/bittrie')
+const bitdrive = require('@web4/bitdrive')
 
 const { createOne } = require('./helpers/create')
 
-test('can open a core', async t => {
+test('can open a chain', async t => {
   const { client, cleanup } = await createOne()
 
-  const corestore = client.corestore()
-  const core = corestore.get()
-  await core.ready()
+  const chainstore = client.chainstore()
+  const chain = chainstore.get()
+  await chain.ready()
 
-  t.same(core.byteLength, 0)
-  t.same(core.length, 0)
-  t.same(core.key.length, 32)
-  t.same(core.discoveryKey.length, 32)
+  t.same(chain.byteLength, 0)
+  t.same(chain.length, 0)
+  t.same(chain.key.length, 32)
+  t.same(chain.discoveryKey.length, 32)
 
   await cleanup()
   t.end()
@@ -23,12 +23,12 @@ test('can open a core', async t => {
 test('can get a block', async t => {
   const { client, cleanup } = await createOne()
 
-  const corestore = client.corestore()
-  const core = corestore.get()
-  await core.ready()
+  const chainstore = client.chainstore()
+  const chain = chainstore.get()
+  await chain.ready()
 
-  await core.append(Buffer.from('hello world', 'utf8'))
-  const block = await core.get(0)
+  await chain.append(Buffer.from('hello world', 'utf8'))
+  const block = await chain.get(0)
   t.same(block.toString('utf8'), 'hello world')
 
   await cleanup()
@@ -38,25 +38,25 @@ test('can get a block', async t => {
 test('length/byteLength update correctly on append', async t => {
   const { client, cleanup } = await createOne()
 
-  const corestore = client.corestore()
-  const core = corestore.get()
-  await core.ready()
+  const chainstore = client.chainstore()
+  const chain = chainstore.get()
+  await chain.ready()
 
   let appendedCount = 0
-  core.on('append', () => {
+  chain.on('append', () => {
     appendedCount++
   })
 
   const buf = Buffer.from('hello world', 'utf8')
-  let seq = await core.append(buf)
+  let seq = await chain.append(buf)
   t.same(seq, 0)
-  t.same(core.byteLength, buf.length)
-  t.same(core.length, 1)
+  t.same(chain.byteLength, buf.length)
+  t.same(chain.length, 1)
 
-  seq = await core.append([buf, buf])
+  seq = await chain.append([buf, buf])
   t.same(seq, 1)
-  t.same(core.byteLength, buf.length * 3)
-  t.same(core.length, 3)
+  t.same(chain.byteLength, buf.length * 3)
+  t.same(chain.length, 3)
 
   t.same(appendedCount, 2)
 
@@ -67,13 +67,13 @@ test('length/byteLength update correctly on append', async t => {
 test('downloaded gives the correct result after append', async t => {
   const { client, cleanup } = await createOne()
 
-  const corestore = client.corestore()
-  const core = corestore.get()
-  await core.ready()
+  const chainstore = client.chainstore()
+  const chain = chainstore.get()
+  await chain.ready()
 
   const buf = Buffer.from('hello world', 'utf8')
-  await core.append([buf, buf, buf])
-  const downloaded = await core.downloaded()
+  await chain.append([buf, buf, buf])
+  const downloaded = await chain.downloaded()
   t.same(downloaded, 3)
 
   await cleanup()
@@ -83,21 +83,21 @@ test('downloaded gives the correct result after append', async t => {
 test('update with current length returns', async t => {
   const { client, cleanup } = await createOne()
 
-  const corestore = client.corestore()
-  const core = corestore.get()
-  await core.ready()
+  const chainstore = client.chainstore()
+  const chain = chainstore.get()
+  await chain.ready()
 
   const buf = Buffer.from('hello world', 'utf8')
-  const seq = await core.append(buf)
+  const seq = await chain.append(buf)
   t.same(seq, 0)
-  t.same(core.byteLength, buf.length)
-  t.same(core.length, 1)
+  t.same(chain.byteLength, buf.length)
+  t.same(chain.length, 1)
 
-  await core.update(1)
+  await chain.update(1)
   t.pass('update terminated')
 
   try {
-    await core.update({ ifAvailable: true })
+    await chain.update({ ifAvailable: true })
     t.fail('should not get here')
   } catch (err) {
     t.true(err, 'should error with no peers')
@@ -110,9 +110,9 @@ test('update with current length returns', async t => {
 test('appending many large blocks works', async t => {
   const { client, cleanup } = await createOne()
 
-  const corestore = client.corestore()
-  const core = corestore.get()
-  await core.ready()
+  const chainstore = client.chainstore()
+  const chain = chainstore.get()
+  await chain.ready()
 
   const NUM_BLOCKS = 200
   const BLOCK_SIZE = 1e5
@@ -120,9 +120,9 @@ test('appending many large blocks works', async t => {
   const bufs = (new Array(NUM_BLOCKS).fill(0)).map(() => {
     return Buffer.allocUnsafe(BLOCK_SIZE)
   })
-  const seq = await core.append(bufs)
+  const seq = await chain.append(bufs)
   t.same(seq, 0)
-  t.same(core.byteLength, NUM_BLOCKS * BLOCK_SIZE)
+  t.same(chain.byteLength, NUM_BLOCKS * BLOCK_SIZE)
 
   await cleanup()
   t.end()
@@ -131,27 +131,27 @@ test('appending many large blocks works', async t => {
 test('seek works correctly', async t => {
   const { client, cleanup } = await createOne()
 
-  const corestore = client.corestore()
-  const core = corestore.get()
-  await core.ready()
+  const chainstore = client.chainstore()
+  const chain = chainstore.get()
+  await chain.ready()
 
   const buf = Buffer.from('hello world', 'utf8')
-  await core.append([buf, buf])
+  await chain.append([buf, buf])
 
   {
-    const { seq, blockOffset } = await core.seek(0)
+    const { seq, blockOffset } = await chain.seek(0)
     t.same(seq, 0)
     t.same(blockOffset, 0)
   }
 
   {
-    const { seq, blockOffset } = await core.seek(5)
+    const { seq, blockOffset } = await chain.seek(5)
     t.same(seq, 0)
     t.same(blockOffset, 5)
   }
 
   {
-    const { seq, blockOffset } = await core.seek(15)
+    const { seq, blockOffset } = await chain.seek(15)
     t.same(seq, 1)
     t.same(blockOffset, 4)
   }
@@ -163,19 +163,19 @@ test('seek works correctly', async t => {
 test('has works correctly', async t => {
   const { client, cleanup } = await createOne()
 
-  const corestore = client.corestore()
-  const core = corestore.get()
-  await core.ready()
+  const chainstore = client.chainstore()
+  const chain = chainstore.get()
+  await chain.ready()
 
   const buf = Buffer.from('hello world', 'utf8')
-  await core.append(buf)
+  await chain.append(buf)
 
-  const doesHave = await core.has(0)
-  const doesNotHave = await core.has(1)
+  const doesHave = await chain.has(0)
+  const doesNotHave = await chain.has(1)
   t.true(doesHave)
   t.false(doesNotHave)
 
-  await core.close()
+  await chain.close()
   await cleanup()
   t.end()
 })
@@ -183,16 +183,16 @@ test('has works correctly', async t => {
 test('download works correctly', async t => {
   const { client, cleanup } = await createOne()
 
-  const corestore = client.corestore()
-  const core = corestore.get()
-  await core.ready()
+  const chainstore = client.chainstore()
+  const chain = chainstore.get()
+  await chain.ready()
 
   const buf = Buffer.from('hello world', 'utf8')
-  await core.append(buf)
+  await chain.append(buf)
 
   for (let i = 0; i < 3; i++) {
-    const prom = core.download({ start: 0, end: 10 })
-    await core.undownload(prom)
+    const prom = chain.download({ start: 0, end: 10 })
+    await chain.undownload(prom)
 
     try {
       await prom
@@ -201,7 +201,7 @@ test('download works correctly', async t => {
     }
   }
 
-  await core.close()
+  await chain.close()
   await cleanup()
   t.end()
 })
@@ -209,42 +209,42 @@ test('download works correctly', async t => {
 test('valueEncodings work', async t => {
   const { client, cleanup } = await createOne()
 
-  const corestore = client.corestore()
-  const core = corestore.get({ valueEncoding: 'utf8' })
-  await core.ready()
+  const chainstore = client.chainstore()
+  const chain = chainstore.get({ valueEncoding: 'utf8' })
+  await chain.ready()
 
-  await core.append('hello world')
-  const block = await core.get(0)
+  await chain.append('hello world')
+  const block = await chain.get(0)
   t.same(block, 'hello world')
 
   await cleanup()
   t.end()
 })
 
-test('corestore default get works', async t => {
+test('chainstore default get works', async t => {
   const { client, cleanup } = await createOne()
 
-  const ns1 = client.corestore('blah')
-  const ns2 = client.corestore('blah2')
+  const ns1 = client.chainstore('blah')
+  const ns2 = client.chainstore('blah2')
 
-  var core = ns1.default()
-  await core.ready()
+  var chain = ns1.default()
+  await chain.ready()
 
   const buf = Buffer.from('hello world', 'utf8')
-  await core.append(buf)
-  await core.close()
+  await chain.append(buf)
+  await chain.close()
 
   // we have a timing thing here we should fix
   await new Promise(resolve => setTimeout(resolve, 500))
-  core = ns1.default()
-  await core.ready()
+  chain = ns1.default()
+  await chain.ready()
 
-  t.same(core.length, 1)
-  t.true(core.writable)
+  t.same(chain.length, 1)
+  t.true(chain.writable)
 
-  core = ns2.default()
-  await core.ready()
-  t.same(core.length, 0)
+  chain = ns2.default()
+  await chain.ready()
+  t.same(chain.length, 0)
 
   await cleanup()
   t.end()
@@ -253,18 +253,18 @@ test('corestore default get works', async t => {
 test('weak references work', async t => {
   const { client, cleanup } = await createOne()
 
-  const corestore = client.corestore()
-  const core1 = corestore.get()
-  await core1.ready()
+  const chainstore = client.chainstore()
+  const chain1 = chainstore.get()
+  await chain1.ready()
 
-  const core2 = corestore.get(core1.key, { weak: true })
-  await core2.ready()
+  const chain2 = chainstore.get(chain1.key, { weak: true })
+  await chain2.ready()
 
-  await core1.append(Buffer.from('hello world', 'utf8'))
-  t.same(core2.length, 1)
+  await chain1.append(Buffer.from('hello world', 'utf8'))
+  t.same(chain2.length, 1)
 
-  const closed = new Promise((resolve) => core2.once('close', resolve))
-  await core1.close()
+  const closed = new Promise((resolve) => chain2.once('close', resolve))
+  await chain1.close()
 
   await closed
   t.pass('closed')
@@ -272,13 +272,13 @@ test('weak references work', async t => {
   t.end()
 })
 
-test('corestore feed event fires', async t => {
+test('chainstore feed event fires', async t => {
   const { client, cleanup } = await createOne()
 
-  const corestore = client.corestore()
+  const chainstore = client.chainstore()
   const emittedFeeds = []
   const emittedProm = new Promise(resolve => {
-    corestore.on('feed', async feed => {
+    chainstore.on('feed', async feed => {
       t.same(feed._id, undefined)
       emittedFeeds.push(feed)
       if (emittedFeeds.length === 3) {
@@ -288,21 +288,21 @@ test('corestore feed event fires', async t => {
     })
   })
 
-  const core1 = corestore.get()
-  await core1.ready()
-  const core2 = corestore.get()
-  await core2.ready()
-  const core3 = corestore.get()
-  await core3.ready()
+  const chain1 = chainstore.get()
+  await chain1.ready()
+  const chain2 = chainstore.get()
+  await chain2.ready()
+  const chain3 = chainstore.get()
+  await chain3.ready()
   await emittedProm
 
   async function onAllEmitted () {
     for (const feed of emittedFeeds) {
       await feed.ready()
     }
-    t.true(emittedFeeds[0].key.equals(core1.key))
-    t.true(emittedFeeds[1].key.equals(core2.key))
-    t.true(emittedFeeds[2].key.equals(core3.key))
+    t.true(emittedFeeds[0].key.equals(chain1.key))
+    t.true(emittedFeeds[1].key.equals(chain2.key))
+    t.true(emittedFeeds[2].key.equals(chain3.key))
     await cleanup()
     t.end()
   }
@@ -311,14 +311,14 @@ test('corestore feed event fires', async t => {
 test('can lock and release', async t => {
   const { client, cleanup } = await createOne()
 
-  const corestore = client.corestore()
-  const core1 = corestore.get()
-  await core1.ready()
+  const chainstore = client.chainstore()
+  const chain1 = chainstore.get()
+  await chain1.ready()
 
-  const release = await core1.lock()
+  const release = await chain1.lock()
 
   let unlocked = false
-  const other = core1.lock()
+  const other = chain1.lock()
 
   t.pass('locked')
   other.then(() => t.ok(unlocked))
@@ -334,11 +334,11 @@ test('can lock and release', async t => {
 test('cancel a get', async t => {
   const { client, cleanup } = await createOne()
 
-  const corestore = client.corestore()
-  const core = corestore.get()
+  const chainstore = client.chainstore()
+  const chain = chainstore.get()
 
-  const prom1 = core.get(42, { ifAvailable: false })
-  const prom2 = core.get(43, { ifAvailable: false })
+  const prom1 = chain.get(42, { ifAvailable: false })
+  const prom2 = chain.get(43, { ifAvailable: false })
 
   let cancel1 = false
   let cancel2 = false
@@ -347,7 +347,7 @@ test('cancel a get', async t => {
     cancel1 = true
     t.notOk(cancel2, 'cancelled promise 1 first')
     t.ok(err, 'got error')
-    core.cancel(prom2)
+    chain.cancel(prom2)
   })
   prom2.catch((err) => {
     cancel2 = true
@@ -355,7 +355,7 @@ test('cancel a get', async t => {
     t.ok(err, 'got error')
   })
 
-  core.cancel(prom1)
+  chain.cancel(prom1)
 
   try {
     await prom1
@@ -369,22 +369,22 @@ test('cancel a get', async t => {
 test('onwait', async t => {
   const { client, cleanup } = await createOne()
 
-  const corestore = client.corestore()
-  const core = corestore.get()
+  const chainstore = client.chainstore()
+  const chain = chainstore.get()
 
-  const a = core.get(42, {
+  const a = chain.get(42, {
     onwait (seq) {
       t.ok('should wait')
       t.same(seq, 42)
-      core.cancel(a)
+      chain.cancel(a)
     }
   })
 
-  const b = core.get(43, {
+  const b = chain.get(43, {
     onwait (seq) {
       t.ok('should wait')
       t.same(seq, 43)
-      core.cancel(b)
+      chain.cancel(b)
     }
   })
 
@@ -402,12 +402,12 @@ test('onwait', async t => {
 test('onwait only on missing blocks', async t => {
   const { client, cleanup } = await createOne()
 
-  const corestore = client.corestore()
-  const core = corestore.get()
-  await core.ready()
+  const chainstore = client.chainstore()
+  const chain = chainstore.get()
+  await chain.ready()
 
-  await core.append(Buffer.from('hello world', 'utf8'))
-  const block = await core.get(0, {
+  await chain.append(Buffer.from('hello world', 'utf8'))
+  const block = await chain.get(0, {
     onwait () {
       t.notOk('should not wait')
     }
@@ -418,15 +418,15 @@ test('onwait only on missing blocks', async t => {
   t.end()
 })
 
-test('can run a hypertrie on remote hypercore', async t => {
+test('can run a bittrie on remote unichain', async t => {
   const { client, cleanup } = await createOne()
 
-  const corestore = client.corestore()
-  const core = corestore.default()
-  await core.ready()
+  const chainstore = client.chainstore()
+  const chain = chainstore.default()
+  await chain.ready()
 
-  const trie = hypertrie(null, null, {
-    feed: core,
+  const trie = bittrie(null, null, {
+    feed: chain,
     extension: false,
     valueEncoding: 'utf8'
   })
@@ -448,10 +448,10 @@ test('can run a hypertrie on remote hypercore', async t => {
   t.end()
 })
 
-test('can run a hyperdrive on a remote hypercore', async t => {
+test('can run a bitdrive on a remote unichain', async t => {
   const { client, cleanup } = await createOne()
 
-  const drive = hyperdrive(client.corestore(), null, {
+  const drive = bitdrive(client.chainstore(), null, {
     valueEncoding: 'utf8'
   })
   await new Promise(resolve => {
@@ -477,36 +477,36 @@ test('can connect over a tcp socket', async t => {
     port: 8199
   })
 
-  const corestore = client.corestore()
-  const core = corestore.get()
-  await core.ready()
+  const chainstore = client.chainstore()
+  const chain = chainstore.get()
+  await chain.ready()
 
-  t.same(core.byteLength, 0)
-  t.same(core.length, 0)
-  t.same(core.key.length, 32)
-  t.same(core.discoveryKey.length, 32)
+  t.same(chain.byteLength, 0)
+  t.same(chain.length, 0)
+  t.same(chain.key.length, 32)
+  t.same(chain.discoveryKey.length, 32)
 
   await cleanup()
   t.end()
 })
 
-test('handles corestore gc correctly', async t => {
+test('handles chainstore gc correctly', async t => {
   const { client, cleanup } = await createOne({
     cacheSize: 1
   })
-  const store1 = client.corestore()
-  const store2 = client.corestore()
+  const store1 = client.chainstore()
+  const store2 = client.chainstore()
 
-  const core1 = store1.get()
-  await core1.ready()
+  const chain1 = store1.get()
+  await chain1.ready()
 
-  const core2 = store2.get()
-  const core3 = store2.get(core1.key)
-  await core2.ready()
-  await core3.ready()
+  const chain2 = store2.get()
+  const chain3 = store2.get(chain1.key)
+  await chain2.ready()
+  await chain3.ready()
 
   try {
-    await core3.append('hello world')
+    await chain3.append('hello world')
     t.pass('append did not error')
   } catch (err) {
     t.fail(err)

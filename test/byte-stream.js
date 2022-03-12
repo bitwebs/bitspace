@@ -1,19 +1,19 @@
-// All tests have been taken directly from Hypertrie.
-// (with modifications to inject RemoteHypercores)
+// All tests have been taken directly from Bittrie.
+// (with modifications to inject RemoteUnichains)
 
 const tape = require('tape')
 const ram = require('random-access-memory')
-const byteStream = require('hypercore-byte-stream')
-const HyperspaceClient = require('../client')
-const HyperspaceServer = require('../server')
+const byteStream = require('@bitweb/unichain-byte-stream')
+const BitspaceClient = require('../client')
+const BitspaceServer = require('../server')
 
 let server = null
 let client = null
 let cleanup = null
 
 function createLocal (numRecords, recordSize, cb) {
-  const corestore = client.corestore()
-  const core = corestore.get()
+  const chainstore = client.chainstore()
+  const chain = chainstore.get()
 
   const records = []
   for (let i = 0; i < numRecords; i++) {
@@ -21,20 +21,20 @@ function createLocal (numRecords, recordSize, cb) {
     records.push(record)
   }
 
-  core.append(records, err => {
+  chain.append(records, err => {
     if (err) return cb(err)
     const stream = byteStream()
-    return cb(null, core, core, stream, records)
+    return cb(null, chain, chain, stream, records)
   })
 }
 
-require('hypercore-byte-stream/test/helpers/create').createLocal = createLocal
+require('@web4/unichain-byte-stream/test/helpers/create').createLocal = createLocal
 
 tape('start', async function (t) {
-  server = new HyperspaceServer({ storage: ram })
+  server = new BitspaceServer({ storage: ram })
   await server.ready()
 
-  client = new HyperspaceClient()
+  client = new BitspaceClient()
   await client.ready()
 
   cleanup = () => Promise.all([
@@ -45,7 +45,7 @@ tape('start', async function (t) {
   t.end()
 })
 
-require('hypercore-byte-stream/test/basic')
+require('@web4/unichain-byte-stream/test/basic')
 
 tape('end', async function (t) {
   await cleanup()

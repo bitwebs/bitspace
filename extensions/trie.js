@@ -1,12 +1,12 @@
-const hypertrie = require('hypertrie')
-const { Header } = require('hypertrie/lib/messages')
+const bittrie = require('@web4/bittrir')
+const { Header } = require('@web4/bittrie/lib/messages')
 
-module.exports = function startTrieExtension (corestore) {
-  corestore.on('feed', function (feed) {
+module.exports = function startTrieExtension (chainstore) {
+  chainstore.on('feed', function (feed) {
     onHeaderType(feed, function (type) {
-      if (type !== 'hypertrie') return
+      if (type !== 'bittrie') return
       // fire up the trie to answer extensions, when the feed is gc'ed it'll be gc'ed
-      hypertrie(null, null, { feed }).on('error', noop)
+      bittrie(null, null, { feed }).on('error', noop)
     })
   })
 }

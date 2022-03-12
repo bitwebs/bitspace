@@ -1,24 +1,24 @@
 const test = require('tape')
-const hypercoreCrypto = require('hypercore-crypto')
+const bitwebCrypto = require('@web4/bitweb-crypto')
 const { createOne, createMany } = require('./helpers/create')
 
-test('can replicate one core between two daemons', async t => {
+test('can replicate one chain between two daemons', async t => {
   const { clients, cleanup } = await createMany(2)
 
   const client1 = clients[0]
   const client2 = clients[1]
-  const corestore1 = client1.corestore()
-  const corestore2 = client2.corestore()
+  const chainstore1 = client1.chainstore()
+  const chainstore2 = client2.chainstore()
 
-  const core1 = corestore1.get()
-  await core1.ready()
-  await core1.append(Buffer.from('hello world', 'utf8'))
-  await client1.network.configure(core1.discoveryKey, { announce: true, lookup: true, flush: true })
+  const chain1 = chainstore1.get()
+  await chain1.ready()
+  await chain1.append(Buffer.from('hello world', 'utf8'))
+  await client1.network.configure(chain1.discoveryKey, { announce: true, lookup: true, flush: true })
 
-  const core2 = corestore2.get(core1.key)
-  await core2.ready()
-  await client2.network.configure(core1.discoveryKey, { announce: false, lookup: true })
-  const block = await core2.get(0)
+  const chain2 = chainstore2.get(chain1.key)
+  await chain2.ready()
+  await client2.network.configure(chain1.discoveryKey, { announce: false, lookup: true })
+  const block = await chain2.get(0)
   t.same(block.toString('utf8'), 'hello world')
 
   await cleanup()
@@ -31,23 +31,23 @@ test('announced discovery key is rejoined on restart', async t => {
   var client1 = clients[0]
   var server1 = servers[0]
   const client2 = clients[1]
-  const corestore1 = client1.corestore()
-  const corestore2 = client2.corestore()
+  const chainstore1 = client1.chainstore()
+  const chainstore2 = client2.chainstore()
 
-  const core1 = corestore1.get()
-  await core1.ready()
-  await core1.append(Buffer.from('hello world', 'utf8'))
-  await client1.network.configure(core1.discoveryKey, { announce: true, lookup: true, flush: true, remember: true })
+  const chain1 = chainstore1.get()
+  await chain1.ready()
+  await chain1.append(Buffer.from('hello world', 'utf8'))
+  await client1.network.configure(chain1.discoveryKey, { announce: true, lookup: true, flush: true, remember: true })
 
   await server1.close()
   const newServer = await createOne({ dir: dirs[0], bootstrap: bootstrapOpt })
   client1 = newServer.client
   server1 = newServer.server
 
-  const core2 = corestore2.get(core1.key)
-  await core2.ready()
-  await client2.network.configure(core1.discoveryKey, { announce: false, lookup: true })
-  const block = await core2.get(0)
+  const chain2 = chainstore2.get(chain1.key)
+  await chain2.ready()
+  await client2.network.configure(chain1.discoveryKey, { announce: false, lookup: true })
+  const block = await chain2.get(0)
   t.same(block.toString('utf8'), 'hello world')
 
   await server1.close()
@@ -55,36 +55,36 @@ test('announced discovery key is rejoined on restart', async t => {
   t.end()
 })
 
-test('peers are set on a remote hypercore', async t => {
+test('peers are set on a remote unichain', async t => {
   const { clients, servers, cleanup } = await createMany(5)
   const firstPeerRemoteKey = servers[0].networker.keyPair.publicKey
 
-  const corestores = clients.map(c => c.corestore())
+  const chainstores = clients.map(c => c.chainstore())
   const client1 = clients[0]
-  const core1 = corestores[0].get()
-  await core1.ready()
-  await core1.append(Buffer.from('hello world', 'utf8'))
-  await client1.network.configure(core1.discoveryKey, { announce: true, lookup: true, flush: true })
+  const chain1 = chainstores[0].get()
+  await chain1.ready()
+  await chain1.append(Buffer.from('hello world', 'utf8'))
+  await client1.network.configure(chain1.discoveryKey, { announce: true, lookup: true, flush: true })
 
   // Create 4 more peers, and each one should only connect to the first.
   for (let i = 1; i < clients.length; i++) {
     const client = clients[i]
-    const corestore = corestores[i]
-    const core = corestore.get(core1.key)
-    await core.ready()
+    const chainstore = chainstores[i]
+    const chain = chainstore.get(chain1.key)
+    await chain.ready()
     const peerAddProm = new Promise(resolve => {
       let opened = 0
       const openedListener = peer => {
         t.true(peer.remotePublicKey.equals(firstPeerRemoteKey))
         if (++opened === 1) {
-          core.removeListener('peer-open', openedListener)
+          chain.removeListener('peer-open', openedListener)
           return resolve()
         }
         return null
       }
-      core.on('peer-open', openedListener)
+      chain.on('peer-open', openedListener)
     })
-    await client.network.configure(core1.discoveryKey, { announce: false, lookup: true })
+    await client.network.configure(chain1.discoveryKey, { announce: false, lookup: true })
     await peerAddProm
   }
 
@@ -97,13 +97,13 @@ test('can get a stored network configuration', async t => {
   const { clients, cleanup } = await createMany(1)
   const client = clients[0]
 
-  const corestore = client.corestore()
-  const core = corestore.get()
-  await core.ready()
-  await client.network.configure(core.discoveryKey, { announce: true, lookup: true, flush: true, remember: true })
+  const chainstore = client.chainstore()
+  const chain = chainstore.get()
+  await chain.ready()
+  await client.network.configure(chain.discoveryKey, { announce: true, lookup: true, flush: true, remember: true })
 
-  const status = await client.network.status(core.discoveryKey)
-  t.true(status.discoveryKey.equals(core.discoveryKey))
+  const status = await client.network.status(chain.discoveryKey)
+  t.true(status.discoveryKey.equals(chain.discoveryKey))
   t.true(status.announce)
   t.true(status.lookup)
 
@@ -115,13 +115,13 @@ test('can get a transient network configuration', async t => {
   const { clients, cleanup } = await createMany(1)
   const client = clients[0]
 
-  const corestore = client.corestore()
-  const core = corestore.get()
-  await core.ready()
-  await client.network.configure(core.discoveryKey, { announce: false, lookup: true, flush: true, remember: false })
+  const chainstore = client.chainstore()
+  const chain = chainstore.get()
+  await chain.ready()
+  await client.network.configure(chain.discoveryKey, { announce: false, lookup: true, flush: true, remember: false })
 
-  const status = await client.network.status(core.discoveryKey)
-  t.true(status.discoveryKey.equals(core.discoveryKey))
+  const status = await client.network.status(chain.discoveryKey)
+  t.true(status.discoveryKey.equals(chain.discoveryKey))
   t.false(status.announce)
   t.true(status.lookup)
 
@@ -133,16 +133,16 @@ test('can get all network configurations', async t => {
   const { clients, cleanup } = await createMany(1)
   const client = clients[0]
 
-  const core1 = client.corestore().get()
-  const core2 = client.corestore().get()
-  const core3 = client.corestore().get()
-  await core1.ready()
-  await core2.ready()
-  await core3.ready()
+  const chain1 = client.chainstore().get()
+  const chain2 = client.chainstore().get()
+  const chain3 = client.chainstore().get()
+  await chain1.ready()
+  await chain2.ready()
+  await chain3.ready()
 
-  await client.network.configure(core1.discoveryKey, { announce: false, lookup: true, flush: true, remember: false })
-  await client.network.configure(core2.discoveryKey, { announce: false, lookup: true, flush: true, remember: true })
-  await client.network.configure(core3.discoveryKey, { announce: true, lookup: true, flush: true, remember: false })
+  await client.network.configure(chain1.discoveryKey, { announce: false, lookup: true, flush: true, remember: false })
+  await client.network.configure(chain2.discoveryKey, { announce: false, lookup: true, flush: true, remember: true })
+  await client.network.configure(chain3.discoveryKey, { announce: true, lookup: true, flush: true, remember: false })
 
   const statuses = await client.network.allStatuses()
   t.same(statuses.length, 3)
@@ -167,10 +167,10 @@ test('can get swarm-level networking events', async t => {
   const { clients, servers, cleanup } = await createMany(5)
 
   const client1 = clients[0]
-  const core1 = client1.corestore().get()
-  await core1.ready()
-  await core1.append(Buffer.from('hello world', 'utf8'))
-  await client1.network.configure(core1.discoveryKey, { announce: true, lookup: true, flush: true })
+  const chain1 = client1.chainstore().get()
+  await chain1.ready()
+  await chain1.append(Buffer.from('hello world', 'utf8'))
+  await client1.network.configure(chain1.discoveryKey, { announce: true, lookup: true, flush: true })
 
   let opened = 0
   let closed = 0
@@ -192,9 +192,9 @@ test('can get swarm-level networking events', async t => {
   // Create 4 more peers, and each one should only connect to the first.
   for (let i = 1; i < clients.length; i++) {
     const client = clients[i]
-    const core = client.corestore().get(core1.key)
-    await core.ready()
-    await client.network.configure(core1.discoveryKey, { announce: false, lookup: true })
+    const chain = client.chainstore().get(chain1.key)
+    await chain.ready()
+    await client.network.configure(chain1.discoveryKey, { announce: false, lookup: true })
   }
 
   await openProm
@@ -210,14 +210,14 @@ test('can get swarm-level networking events', async t => {
   t.end()
 })
 
-test('an existing core is opened with peers', async t => {
+test('an existing chain is opened with peers', async t => {
   const { clients, cleanup } = await createMany(5)
 
   const client1 = clients[0]
-  const core1 = client1.corestore().get()
-  await core1.ready()
-  await core1.append(Buffer.from('hello world', 'utf8'))
-  await client1.network.configure(core1.discoveryKey, { announce: true, lookup: true, flush: true })
+  const chain1 = client1.chainstore().get()
+  await chain1.ready()
+  await chain1.append(Buffer.from('hello world', 'utf8'))
+  await client1.network.configure(chain1.discoveryKey, { announce: true, lookup: true, flush: true })
 
   let opened = 0
   const openProm = new Promise(resolve => {
@@ -231,17 +231,17 @@ test('an existing core is opened with peers', async t => {
   // Create 4 more peers, and each one should only connect to the first.
   for (let i = 1; i < clients.length; i++) {
     const client = clients[i]
-    const core = client.corestore().get(core1.key)
-    await core.ready()
-    await client.network.configure(core1.discoveryKey, { announce: false, lookup: true })
+    const chain = client.chainstore().get(chain1.key)
+    await chain.ready()
+    await client.network.configure(chain1.discoveryKey, { announce: false, lookup: true })
   }
 
   await openProm
 
-  const core2 = client1.corestore().get(core1.key)
-  await core2.ready()
+  const chain2 = client1.chainstore().get(chain1.key)
+  await chain2.ready()
   // Peers should be set immediately after ready.
-  t.same(core2.peers.length, 4)
+  t.same(chain2.peers.length, 4)
 
   await cleanup()
   t.end()
@@ -257,7 +257,7 @@ test('can send on a network extension', async t => {
   let oneReceived = 0
   let twoReceived = 0
 
-  const sharedKey = hypercoreCrypto.randomBytes(32)
+  const sharedKey = bitwebCrypto.randomBytes(32)
 
   const ext1 = client1.network.registerExtension(extensionName, {
     encoding: 'utf8',
@@ -316,7 +316,7 @@ test('can broadcast on a network extension', async t => {
   let oneReceived = 0
   let twoReceived = 0
 
-  const sharedKey = hypercoreCrypto.randomBytes(32)
+  const sharedKey = bitwebCrypto.randomBytes(32)
 
   client1.network.registerExtension(extensionName, {
     encoding: 'utf8',
@@ -357,7 +357,7 @@ test('can broadcast on a network extension', async t => {
   t.end()
 })
 
-test('can send on a hypercore extension', async t => {
+test('can send on a unichain extension', async t => {
   const { clients, cleanup } = await createMany(3)
   const extensionName = 'test-extension'
 
@@ -367,15 +367,15 @@ test('can send on a hypercore extension', async t => {
   let oneReceived = 0
   let twoReceived = 0
 
-  const core1 = client1.corestore().get()
-  await core1.ready()
+  const chain1 = client1.chainstore().get()
+  await chain1.ready()
 
-  const core2 = client2.corestore().get(core1.key)
-  const core3 = client3.corestore().get(core1.key)
-  await core2.ready()
-  await core3.ready()
+  const chain2 = client2.chainstore().get(chain1.key)
+  const chain3 = client3.chainstore().get(chain1.key)
+  await chain2.ready()
+  await chain3.ready()
 
-  const ext1 = core1.registerExtension(extensionName, {
+  const ext1 = chain1.registerExtension(extensionName, {
     encoding: 'utf8',
     onmessage: (message, peer) => {
       t.true(peer.remotePublicKey.equals(client3.network.keyPair.publicKey))
@@ -384,7 +384,7 @@ test('can send on a hypercore extension', async t => {
     }
   })
 
-  core2.registerExtension(extensionName, {
+  chain2.registerExtension(extensionName, {
     encoding: 'utf8',
     onmessage: (message, peer) => {
       t.true(peer.remotePublicKey.equals(client3.network.keyPair.publicKey))
@@ -393,18 +393,18 @@ test('can send on a hypercore extension', async t => {
     }
   })
 
-  const ext3 = core3.registerExtension(extensionName, {
+  const ext3 = chain3.registerExtension(extensionName, {
     encoding: 'utf8'
   })
 
-  await client3.network.configure(core1.discoveryKey, { announce: true, lookup: true })
-  await client1.network.configure(core2.discoveryKey, { announce: false, lookup: true })
-  await client2.network.configure(core3.discoveryKey, { announce: false, lookup: true })
+  await client3.network.configure(chain1.discoveryKey, { announce: true, lookup: true })
+  await client1.network.configure(chain2.discoveryKey, { announce: false, lookup: true })
+  await client2.network.configure(chain3.discoveryKey, { announce: false, lookup: true })
 
   await delay(100)
 
-  for (let i = 0; i < core3.peers.length; i++) {
-    ext3.send('hello-' + i, core3.peers[i])
+  for (let i = 0; i < chain3.peers.length; i++) {
+    ext3.send('hello-' + i, chain3.peers[i])
   }
 
   await delay(100)
@@ -427,20 +427,20 @@ test('can read a live stream', async t => {
 
   const client1 = clients[0]
   const client2 = clients[1]
-  const corestore1 = client1.corestore()
-  const corestore2 = client2.corestore()
+  const chainstore1 = client1.chainstore()
+  const chainstore2 = client2.chainstore()
 
-  const core1 = corestore1.get()
-  await core1.ready()
-  await core1.append(Buffer.from('zero', 'utf8'))
-  await core1.append(Buffer.from('one', 'utf8'))
-  await client1.network.configure(core1.discoveryKey, { announce: true, lookup: true, flush: true })
+  const chain1 = chainstore1.get()
+  await chain1.ready()
+  await chain1.append(Buffer.from('zero', 'utf8'))
+  await chain1.append(Buffer.from('one', 'utf8'))
+  await client1.network.configure(chain1.discoveryKey, { announce: true, lookup: true, flush: true })
 
-  const core2 = corestore2.get(core1.key, { valueEncoding: 'utf8' })
-  await core2.ready()
-  await client2.network.configure(core2.discoveryKey, { announce: false, lookup: true })
+  const chain2 = chainstore2.get(chain1.key, { valueEncoding: 'utf8' })
+  await chain2.ready()
+  await client2.network.configure(chain2.discoveryKey, { announce: false, lookup: true })
 
-  const rs = core2.createReadStream({ live: true })
+  const rs = chain2.createReadStream({ live: true })
   const blocks = []
   rs.on('data', block => {
     blocks.push(block)
@@ -449,8 +449,8 @@ test('can read a live stream', async t => {
   await delay(100)
   t.deepEqual(blocks, ['zero', 'one'])
 
-  await core1.append(Buffer.from('two'))
-  await core1.append(Buffer.from('three'))
+  await chain1.append(Buffer.from('two'))
+  await chain1.append(Buffer.from('three'))
   await delay(100)
   t.deepEqual(blocks, ['zero', 'one', 'two', 'three'])
 
@@ -464,37 +464,37 @@ test('can watch downloads, uploads, and appends', async t => {
 
   const client1 = clients[0]
   const client2 = clients[1]
-  const corestore1 = client1.corestore()
-  const corestore2 = client2.corestore()
+  const chainstore1 = client1.chainstore()
+  const chainstore2 = client2.chainstore()
 
-  const core1 = corestore1.get()
-  await core1.ready()
-  await core1.append(Buffer.from('zero', 'utf8'))
-  await core1.append(Buffer.from('one', 'utf8'))
-  await core1.append(Buffer.from('two', 'utf8'))
-  await client1.network.configure(core1.discoveryKey, { announce: true, lookup: true, flush: true })
+  const chain1 = chainstore1.get()
+  await chain1.ready()
+  await chain1.append(Buffer.from('zero', 'utf8'))
+  await chain1.append(Buffer.from('one', 'utf8'))
+  await chain1.append(Buffer.from('two', 'utf8'))
+  await client1.network.configure(chain1.discoveryKey, { announce: true, lookup: true, flush: true })
 
-  const core2 = corestore2.get(core1.key)
-  await core2.ready()
+  const chain2 = chainstore2.get(chain1.key)
+  await chain2.ready()
 
   let uploads = 0
   let uploadBytes = 0
   let downloads = 0
   let downloadBytes = 0
   let appends = 0
-  core1.on('upload', (seq, data) => { uploads++; uploadBytes += data.byteLength })
-  core2.on('download', (seq, data) => { downloads++; downloadBytes += data.byteLength })
-  core2.on('append', () => (appends++))
+  chain1.on('upload', (seq, data) => { uploads++; uploadBytes += data.byteLength })
+  chain2.on('download', (seq, data) => { downloads++; downloadBytes += data.byteLength })
+  chain2.on('append', () => (appends++))
 
-  await client2.network.configure(core1.discoveryKey, { announce: false, lookup: true })
+  await client2.network.configure(chain1.discoveryKey, { announce: false, lookup: true })
 
-  let downloadPromise = watchDownloadPromise(core2, 2)
-  let block = await core2.get(2)
+  let downloadPromise = watchDownloadPromise(chain2, 2)
+  let block = await chain2.get(2)
   t.same(block.toString('utf8'), 'two')
   await downloadPromise
 
-  downloadPromise = watchDownloadPromise(core2, 0)
-  block = await core2.get(0)
+  downloadPromise = watchDownloadPromise(chain2, 0)
+  block = await chain2.get(0)
   t.same(block.toString('utf8'), 'zero')
   await downloadPromise
 
@@ -504,13 +504,13 @@ test('can watch downloads, uploads, and appends', async t => {
   t.equal(downloadBytes, 7, 'download bytes correct')
   t.equal(appends, 1, 'append count correct')
 
-  await core1.append(Buffer.from('three', 'utf8'))
-  await core1.append(Buffer.from('four', 'utf8'))
-  await core2.update({})
+  await chain1.append(Buffer.from('three', 'utf8'))
+  await chain1.append(Buffer.from('four', 'utf8'))
+  await chain2.update({})
   t.equal(appends, 2, 'append counter after update correct')
 
-  downloadPromise = watchDownloadPromise(core2, 4)
-  await core2.download(4)
+  downloadPromise = watchDownloadPromise(chain2, 4)
+  await chain2.download(4)
   await downloadPromise
   t.equal(uploadBytes, 11, 'upload bytes after download correct')
   t.equal(uploads, 3, 'upload counter after download correct')
@@ -526,30 +526,30 @@ test('download all', async t => {
 
   const client1 = clients[0]
   const client2 = clients[1]
-  const corestore1 = client1.corestore()
-  const corestore2 = client2.corestore()
+  const chainstore1 = client1.chainstore()
+  const chainstore2 = client2.chainstore()
 
-  const core1 = corestore1.get()
-  await core1.ready()
-  await core1.append(Buffer.from('zero', 'utf8'))
-  await core1.append(Buffer.from('one', 'utf8'))
-  await core1.append(Buffer.from('two', 'utf8'))
-  await client1.network.configure(core1.discoveryKey, { announce: true, lookup: true, flush: true })
+  const chain1 = chainstore1.get()
+  await chain1.ready()
+  await chain1.append(Buffer.from('zero', 'utf8'))
+  await chain1.append(Buffer.from('one', 'utf8'))
+  await chain1.append(Buffer.from('two', 'utf8'))
+  await client1.network.configure(chain1.discoveryKey, { announce: true, lookup: true, flush: true })
 
-  const core2 = corestore2.get(core1.key)
-  await core2.ready()
+  const chain2 = chainstore2.get(chain1.key)
+  await chain2.ready()
 
   let downloads = 0
   const p = new Promise((resolve) => {
-    core2.on('download', () => {
+    chain2.on('download', () => {
       downloads++
       if (downloads === 3) resolve()
     })
   })
 
-  await client2.network.configure(core1.discoveryKey, { announce: false, lookup: true })
+  await client2.network.configure(chain1.discoveryKey, { announce: false, lookup: true })
 
-  core2.download() // download all
+  chain2.download() // download all
 
   await p
   t.same(downloads, 3, '3 downloads')
@@ -562,25 +562,25 @@ test('can swarm with the replicate function', async t => {
 
   const client1 = clients[0]
   const client2 = clients[1]
-  const corestore1 = client1.corestore()
-  const corestore2 = client2.corestore()
+  const chainstore1 = client1.chainstore()
+  const chainstore2 = client2.chainstore()
 
-  const core1 = corestore1.get()
-  await client1.replicate(core1)
-  await core1.append(Buffer.from('hello world', 'utf8'))
+  const chain1 = chainstore1.get()
+  await client1.replicate(chain1)
+  await chain1.append(Buffer.from('hello world', 'utf8'))
 
-  const core2 = corestore2.get(core1.key)
-  await client2.replicate(core2)
-  const block = await core2.get(0)
+  const chain2 = chainstore2.get(chain1.key)
+  await client2.replicate(chain2)
+  const block = await chain2.get(0)
   t.same(block.toString('utf8'), 'hello world')
 
   await cleanup()
   t.end()
 })
 
-function watchDownloadPromise (core, expectedSeq) {
+function watchDownloadPromise (chain, expectedSeq) {
   return new Promise((resolve, reject) => {
-    core.once('download', seq => {
+    chain.once('download', seq => {
       if (seq === expectedSeq) resolve()
       else reject(new Error('Expected ' + expectedSeq + ', found ' + seq))
     })

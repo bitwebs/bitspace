@@ -1,20 +1,20 @@
 const path = require('path')
 const os = require('os')
 
-const Corestore = require('corestore')
-const Networker = require('@corestore/networker')
-const HypercoreCache = require('hypercore-cache')
-const HypercoreProtocol = require('hypercore-protocol')
-const hypercoreStorage = require('hypercore-default-storage')
+const Chainstore = require('@web4/chainstore')
+const Networker = require('@web4/chainstore-networker')
+const UnichainCache = require('@web4/unichain-cache')
+const BitProtocol = require('@web4/bit-protocol')
+const unichainStorage = require('@web4/unichain-default-storage')
 const { NanoresourcePromise: Nanoresource } = require('nanoresource-promise/emitter')
 
-const HRPC = require('@hyperspace/rpc')
-const getNetworkOptions = require('@hyperspace/rpc/socket')
+const HRPC = require('bitspace-rpc')
+const getNetworkOptions = require('bitspace-rpc/socket')
 
-const HyperspaceDb = require('./lib/db')
+const BitspaceDb = require('./lib/db')
 const SessionState = require('./lib/session-state')
-const CorestoreSession = require('./lib/sessions/corestore')
-const HypercoreSession = require('./lib/sessions/hypercore')
+const ChainstoreSession = require('./lib/sessions/chainstore')
+const UnichainSession = require('./lib/sessions/unichain')
 const NetworkSession = require('./lib/sessions/network')
 const startTrieExtension = require('./extensions/trie')
 
@@ -23,44 +23,44 @@ const CACHE_RATIO = 0.5
 const TREE_CACHE_SIZE = TOTAL_CACHE_SIZE * CACHE_RATIO
 const DATA_CACHE_SIZE = TOTAL_CACHE_SIZE * (1 - CACHE_RATIO)
 
-const DEFAULT_STORAGE_DIR = path.join(os.homedir(), '.hyperspace', 'storage')
+const DEFAULT_STORAGE_DIR = path.join(os.homedir(), '.bitspace', 'storage')
 const MAX_PEERS = 256
 const SWARM_PORT = 49737
-const NAMESPACE = '@hypercore-protocol/hyperspace'
+const NAMESPACE = '@bitweb/bitspace'
 
-module.exports = class Hyperspace extends Nanoresource {
+module.exports = class Bitspace extends Nanoresource {
   constructor (opts = {}) {
     super()
 
     var storage = opts.storage || DEFAULT_STORAGE_DIR
     if (typeof storage === 'string') {
       const storagePath = storage
-      storage = p => hypercoreStorage(path.join(storagePath, p))
+      storage = p => unichainStorage(path.join(storagePath, p))
     }
 
-    const corestoreOpts = {
+    const chainstoreOpts = {
       storage,
       cacheSize: opts.cacheSize,
       sparse: opts.sparse !== false,
       // Collect networking statistics.
       stats: true,
       cache: {
-        data: new HypercoreCache({
+        data: new UnichainCache({
           maxByteSize: DATA_CACHE_SIZE,
           estimateSize: val => val.length
         }),
-        tree: new HypercoreCache({
+        tree: new UnichainCache({
           maxByteSize: TREE_CACHE_SIZE,
           estimateSize: val => 40
         })
       },
       ifAvailable: true
     }
-    this.corestore = new Corestore(corestoreOpts.storage, corestoreOpts)
-    startTrieExtension(this.corestore)
+    this.chainstore = new Chainstore(chainstoreOpts.storage, chainstoreOpts)
+    startTrieExtension(this.chainstore)
 
     this.server = HRPC.createServer(opts.server, this._onConnection.bind(this))
-    this.db = new HyperspaceDb(this.corestore)
+    this.db = new BitspaceDb(this.chainstore)
     this.networker = null
 
     this.noAnnounce = !!opts.noAnnounce
@@ -78,14 +78,14 @@ module.exports = class Hyperspace extends Nanoresource {
   // Nanoresource Methods
 
   async _open () {
-    await this.corestore.ready()
+    await this.chainstore.ready()
     await this.db.open()
 
     // Note: This API is not exposed anymore -- this is a temporary fix.
-    const seed = this.corestore.inner._deriveSecret(NAMESPACE, 'replication-keypair')
-    const swarmId = this.corestore.inner._deriveSecret(NAMESPACE, 'swarm-id')
-    this.networker = new Networker(this.corestore, {
-      keyPair: HypercoreProtocol.keyPair(seed),
+    const seed = this.chainstore.inner._deriveSecret(NAMESPACE, 'replication-keypair')
+    const swarmId = this.chainstore.inner._deriveSecret(NAMESPACE, 'swarm-id')
+    this.networker = new Networker(this.chainstore, {
+      keyPair: BitProtocol.keyPair(seed),
       id: swarmId,
       ...this._networkOpts
     })
@@ -102,7 +102,7 @@ module.exports = class Hyperspace extends Nanoresource {
     await this.networker.close()
     await this.db.close()
     await new Promise((resolve, reject) => {
-      this.corestore.close(err => {
+      this.chainstore.close(err => {
         if (err) return reject(err)
         return resolve(null)
       })
@@ -134,7 +134,7 @@ module.exports = class Hyperspace extends Nanoresource {
   }
 
   /**
-   * This is where we define our main heuristic for allowing hypercore gets/updates to proceed.
+   * This is where we define our main heuristic for allowing unichain gets/updates to proceed.
    */
   _registerCoreTimeouts () {
     const flushSets = new Map()
@@ -147,8 +147,8 @@ module.exports = class Hyperspace extends Nanoresource {
       callAllInSet(peerAddSet)
     })
 
-    this.corestore.on('feed', core => {
-      const discoveryKey = core.discoveryKey
+    this.chainstore.on('feed', chain => {
+      const discoveryKey = chain.discoveryKey
       const peerAddSet = new Set()
       const flushSet = new Set()
       var globalFlushed = false
@@ -162,7 +162,7 @@ module.exports = class Hyperspace extends Nanoresource {
       })
 
       flushSets.set(discoveryKey.toString('hex'), { flushSet, peerAddSet })
-      core.once('peer-add', () => {
+      chain.once('peer-add', () => {
         callAllInSet(peerAddSet)
       })
 
@@ -180,21 +180,21 @@ module.exports = class Hyperspace extends Nanoresource {
           cb = (...args) => {
             oldCb(...args)
           }
-          if (core.peers.length) return cb()
+          if (chain.peers.length) return cb()
           if (this.networker.joined(discoveryKey)) {
-            if (this.networker.flushed(discoveryKey) && !core.peers.length) return cb()
+            if (this.networker.flushed(discoveryKey) && !chain.peers.length) return cb()
             return peerAddSet.add(cb)
           }
           if (globalFlushed) return cb()
           return peerAddSet.add(cb)
         }
       }
-      core.timeouts = timeouts
+      chain.timeouts = timeouts
     })
   }
 
   _onConnection (client) {
-    const sessionState = new SessionState(this.corestore)
+    const sessionState = new SessionState(this.chainstore)
 
     this.emit('client-open', client)
 
@@ -203,10 +203,10 @@ module.exports = class Hyperspace extends Nanoresource {
       this.emit('client-close', client)
     })
 
-    client.hyperspace.onRequest(this)
-    client.corestore.onRequest(new CorestoreSession(client, sessionState, this.corestore))
-    client.hypercore.onRequest(new HypercoreSession(client, sessionState))
-    client.network.onRequest(new NetworkSession(client, sessionState, this.corestore, this.networker, this.db, this._networkState, {
+    client.bitspace.onRequest(this)
+    client.chainstore.onRequest(new ChainstoreSession(client, sessionState, this.chainstore))
+    client.unichain.onRequest(new UnichainSession(client, sessionState))
+    client.network.onRequest(new NetworkSession(client, sessionState, this.chainstore, this.networker, this.db, this._networkState, {
       noAnnounce: this.noAnnounce
     }))
   }
@@ -219,7 +219,7 @@ module.exports = class Hyperspace extends Nanoresource {
     const holepunchable = swarm && swarm.holepunchable()
     return {
       version: require('./package.json').version,
-      apiVersion: require('@hyperspace/rpc/package.json').version,
+      apiVersion: require('@bitspace/rpc/package.json').version,
       holepunchable: holepunchable,
       remoteAddress: remoteAddress ? remoteAddress.host + ':' + remoteAddress.port : ''
     }

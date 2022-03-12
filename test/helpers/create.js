@@ -1,11 +1,11 @@
 const tmp = require('tmp-promise')
-const dht = require('@hyperswarm/dht')
-const HyperspaceClient = require('../../client')
-const HyperspaceServer = require('../../server')
+const dht = require('@web4/dht')
+const BitspaceClient = require('../../client')
+const BitspaceServer = require('../../server')
 
 async function createOne (opts = {}) {
   const tmpDir = opts.dir || await tmp.dir({ unsafeCleanup: true })
-  const server = new HyperspaceServer({
+  const server = new BitspaceServer({
     ...opts,
     storage: tmpDir.path,
     network: {
@@ -16,7 +16,7 @@ async function createOne (opts = {}) {
   })
   await server.ready()
 
-  const client = new HyperspaceClient({ host: opts.host, port: opts.port })
+  const client = new BitspaceClient({ host: opts.host, port: opts.port })
   await client.ready()
 
   const cleanup = async () => {
@@ -46,7 +46,7 @@ async function createMany (numDaemons, opts) {
 
   for (let i = 0; i < numDaemons; i++) {
     const serverOpts = opts ? Array.isArray(opts) ? opts[i] : opts : null
-    const { server, client, cleanup, dir } = await createOne({ ...serverOpts, bootstrap: bootstrapOpt, host: 'hyperspace-' + i })
+    const { server, client, cleanup, dir } = await createOne({ ...serverOpts, bootstrap: bootstrapOpt, host: 'bitspace-' + i })
     cleanups.push(cleanup)
     servers.push(server)
     clients.push(client)

@@ -6,11 +6,11 @@ const repl = require('repl')
 const minimist = require('minimist')
 
 const { Server, Client } = require('../')
-const { migrate: migrateFromDaemon, isMigrated } = require('@hyperspace/migration-tool')
+const { migrate: migrateFromDaemon, isMigrated } = require('bitspace-migration-tool')
 
 // TODO: Default paths are duplicated here because we need to do the async migration check.
-const HYPERSPACE_STORAGE_DIR = p.join(os.homedir(), '.hyperspace', 'storage')
-const HYPERDRIVE_STORAGE_DIR = p.join(os.homedir(), '.hyperdrive', 'storage', 'cores')
+const BITSPACE_STORAGE_DIR = p.join(os.homedir(), '.bitspace', 'storage')
+const BITDRIVE_STORAGE_DIR = p.join(os.homedir(), '.bitdrive', 'storage', 'chains')
 
 const argv = minimist(process.argv.slice(2), {
   string: ['host', 'storage', 'bootstrap'],
@@ -27,12 +27,12 @@ const argv = minimist(process.argv.slice(2), {
   }
 })
 
-const version = `hyperspace/${require('../package.json').version} ${process.platform}-${process.arch} node-${process.version}`
+const version = `bitspace/${require('../package.json').version} ${process.platform}-${process.arch} node-${process.version}`
 
-const help = `Hypercore, batteries included.
+const help = `Unichain, batteries included.
 ${version}
 
-Usage: hyperspace [options]
+Usage: bitspace [options]
 
   --host,         -h  Set unix socket name
   --port          -p  Set the port (will use TCP)
@@ -42,7 +42,7 @@ Usage: hyperspace [options]
   --memory-only       Run all storage in memory
   --no-announce       Disable all network annoucnes
   --repl              Run a debug repl
-  --no-migrate        Disable the Hyperdrive Daemon migration
+  --no-migrate        Disable the Bitdrive Daemon migration
 `
 
 if (argv.help) {
@@ -55,20 +55,20 @@ main().catch(onerror)
 async function main () {
   console.log('Running ' + version)
 
-  // Note: This will be removed in future releases of Hyperspace.
-  // If the hyperdrive-daemon -> hyperspace migration has already completed, this is a no-op.
+  // Note: This will be removed in future releases of Bitspace.
+  // If the bitdrive-daemon -> bitspace migration has already completed, this is a no-op.
   if (argv.migrate) {
     if (!(await isMigrated({ noMove: true }))) {
-      console.log('Migrating from Hyperdrive daemon...')
-      // TODO: For Beaker compat, do not move existing cores into ~/.hyperspace for now.
+      console.log('Migrating from Bitdrive daemon...')
+      // TODO: For ByteBrowser compat, do not move existing chains into ~/.bitspace for now.
       await migrateFromDaemon({ noMove: true })
       console.log('Migration finished.')
     }
   }
 
   // For now, the storage path is determined as follows:
-  // If ~/.hyperdrive/storage/cores exists, use that (from an old hyperdrive daemon installation)
-  // Else, use ~/.hyperspace/storage
+  // If ~/.bitdrive/storage/chains exists, use that (from an old bitdrive daemon installation)
+  // Else, use ~/.bitspace/storage
   const storage = argv.storage ? argv.storage : await getStoragePath()
 
   const s = new Server({
@@ -79,7 +79,7 @@ async function main () {
     noAnnounce: !argv.announce,
     noMigrate: !argv.migrate
   })
-  global.hyperspace = s
+  global.bitspace = s
 
   if (!argv.repl) {
     s.on('client-open', () => {
@@ -138,11 +138,11 @@ async function main () {
 async function getStoragePath () {
   try {
     // If this dir exists, use it.
-    await fs.stat(HYPERDRIVE_STORAGE_DIR)
-    return HYPERDRIVE_STORAGE_DIR
+    await fs.stat(BITDRIVE_STORAGE_DIR)
+    return BITDRIVE_STORAGE_DIR
   } catch (err) {
     if (err.code !== 'ENOENT') throw err
-    return HYPERSPACE_STORAGE_DIR
+    return BITSPACE_STORAGE_DIR
   }
 }
 
