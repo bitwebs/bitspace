@@ -3,7 +3,7 @@
 
 const tape = require('tape')
 const ram = require('random-access-memory')
-const byteStream = require('@bitweb/unichain-byte-stream')
+const byteStream = require('@web4/unichain-byte-stream')
 const BitspaceClient = require('../client')
 const BitspaceServer = require('../server')
 
