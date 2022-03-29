@@ -34,7 +34,7 @@ async function createMany (numDaemons, opts) {
   const servers = []
   const dirs = []
 
-  const bootstrapper =  dht({
+  const bootstrapper = dht({
     bootstrap: false
   })
   bootstrapper.listen()
