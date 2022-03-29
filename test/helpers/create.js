@@ -1,5 +1,5 @@
 const tmp = require('tmp-promise')
-const dht = require('@web4/dht')
+const dht = require('@web4/dht-legacy')
 const BitspaceClient = require('../../client')
 const BitspaceServer = require('../../server')
 
@@ -34,7 +34,7 @@ async function createMany (numDaemons, opts) {
   const servers = []
   const dirs = []
 
-  const bootstrapper = dht({
+  const bootstrapper =  new BitWebDHT({
     bootstrap: false
   })
   bootstrapper.listen()

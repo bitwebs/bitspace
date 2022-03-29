@@ -1,6 +1,6 @@
 {
   "name": "bitspace",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Unichains, batteries included.",
   "main": "index.js",
   "bin": {
@@ -47,7 +47,7 @@
   },
   "devDependencies": {
     "@web4/bitdrive": "^1.0.0",
-    "@web4/dht": "^1.0.0",
+    "@web4/dht-legacy": "^1.0.0",
     "@web4/unichain-byte-stream": "^1.0.0",
     "compare": "^2.0.0",
     "protocol-buffers": "^4.2.0",
