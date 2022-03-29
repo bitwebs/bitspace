@@ -1,4 +1,4 @@
-const bittrie = require('@web4/bittrir')
+const bittrie = require('@web4/bittrie')
 const { Header } = require('@web4/bittrie/lib/messages')
 
 module.exports = function startTrieExtension (chainstore) {
