@@ -34,7 +34,7 @@ async function createMany (numDaemons, opts) {
   const servers = []
   const dirs = []
 
-  const bootstrapper =  new BitWebDHT({
+  const bootstrapper =  dht({
     bootstrap: false
   })
   bootstrapper.listen()
