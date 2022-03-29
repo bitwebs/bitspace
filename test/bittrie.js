@@ -23,7 +23,7 @@ function create (key, opts) {
   })
 }
 
-require('@web4/bittrietest/helpers/create').create = create
+require('@web4/bittrie/test/helpers/create').create = create
 
 tape('start', async function (t) {
   server = new BitspaceServer({ storage: ram })
@@ -40,14 +40,14 @@ tape('start', async function (t) {
   t.end()
 })
 
-require('@web4/bittrietest/basic')
-require('@web4/bittrietest/diff')
-require('@web4/bittrietest/hidden')
-require('@web4/bittrietest/iterator')
-require('@web4/bittrietest/history')
-// require('@web4/bittrietest/watch')
-require('@web4/bittrietest/closest')
-require('@web4/bittrietest/deletes')
+require('@web4/bittrie/test/basic')
+require('@web4/bittrie/test/diff')
+require('@web4/bittrie/test/hidden')
+require('@web4/bittrie/test/iterator')
+require('@web4/bittrie/test/history')
+// require('@web4/bittrie/test/watch')
+require('@web4/bittrie/test/closest')
+require('@web4/bittrie/test/deletes')
 
 tape('end', async function (t) {
   await cleanup()
