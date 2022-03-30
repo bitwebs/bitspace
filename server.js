@@ -219,7 +219,7 @@ module.exports = class Bitspace extends Nanoresource {
     const holepunchable = swarm && swarm.holepunchable()
     return {
       version: require('./package.json').version,
-      apiVersion: require('@bitspace/rpc/package.json').version,
+      apiVersion: require('bitspace-rpc/package.json').version,
       holepunchable: holepunchable,
       remoteAddress: remoteAddress ? remoteAddress.host + ':' + remoteAddress.port : ''
     }
